@@ -10,6 +10,7 @@ Residential cleaning companies live on weekly and biweekly clients, and most can
 |---|---|
 | **Owner dashboard** | Recurring revenue, revenue at risk, 30-day rating trend, visits this week, clients needing attention, cleaner scorecard |
 | **Client health** | Scores every client 0–100 (Healthy / At risk / Critical) from ratings, rating trend, complaint themes, skipped visits and cleaner consistency. With an Anthropic API key, Claude reads the client's actual feedback and writes the summary, reasons and a specific recommended action; otherwise a deterministic rules engine does it |
+| **Sales / call intelligence** | Calls arrive from the phone system with transcripts. AI classifies each call (new lead, booking, reschedule, complaint, cancellation, billing, service question, other), writes a one-line summary, pulls out the caller's name, address and what they want, and scores the rep on a 5-part coaching rubric with feedback quoting the call. Leads are created and moved through the pipeline automatically (only ever forward), complaint and cancellation calls from existing clients feed their health score, and a coaching queue surfaces low-scoring calls and missed opportunities |
 | **Task queue** | Health alerts automatically become follow-up tasks (one open task per client, updated as things change), alongside client requests and manual tasks |
 | **Clients** | Full CRUD, search and filters, recurring plans (weekly / biweekly / monthly), preferred cleaner, pause / cancel / reactivate |
 | **Schedule** | Generates visits from recurring plans (idempotent), assign cleaners per visit |
@@ -35,7 +36,7 @@ Browser ──► Next.js 16 (App Router, React 19 Server Components)
 - **Database:** PostgreSQL via Drizzle ORM (typed schema, SQL migrations in `drizzle/`)
 - **Auth:** email + password (bcrypt), signed HTTP-only JWT session cookie (jose). The user is re-loaded from the database on every request, so deactivation and role changes apply immediately
 - **Multi-tenancy:** every row carries `company_id`; every query and mutation is scoped to the signed-in user's company, and ids from forms (cleaners, clients) are verified to belong to that company. Platform admins are the only users without a company (enforced by a database check constraint) and have their own guard (`requireAdmin`), separate from company pages (`requireRole`)
-- **AI:** Anthropic SDK, structured outputs validated with Zod, with an automatic fallback to the rules engine if the key is missing or a call fails
+- **AI:** Anthropic SDK with structured outputs validated by Zod. The model is configurable (`ANTHROPIC_MODEL`, default Claude Haiku 4.5, a fraction of a cent per call analysis). Every AI feature falls back to deterministic rules if the key is missing or a request fails
 - **Tests:** Vitest unit tests for schedule math, health scoring and webhook normalization
 - **Hosting:** Vercel + Supabase
 
@@ -50,7 +51,9 @@ src/
   db/schema.ts      database schema
   lib/actions/      server actions (clients, visits, tasks, team, portal, health)
   lib/health/       signals.ts (feature extraction), rules.ts (scorer), ai.ts (Claude), service.ts (orchestration)
-  lib/webhooks/     payload normalization
+  lib/webhooks/     feedback payload normalization
+  lib/calls/        call analysis: ai.ts (Claude), rules.ts (fallback), pipeline.ts (lead stages), normalize.ts (phone systems), service.ts
+  lib/ai/           shared Claude client (model selection, structured output)
 scripts/            migrate + seed
 tests/              unit tests
 ```
@@ -73,7 +76,7 @@ Demo logins (password `demo1234`):
 |---|---|
 | Platform admin | `admin@shineops.demo` |
 | Owner | `owner@sparkleco.demo` (a second company: `owner@freshnest.demo`) |
-| Manager | `manager@sparkleco.demo` |
+| Manager | `manager@sparkleco.demo` (a second office rep: `kim@sparkleco.demo`) |
 | Cleaner | `maria@sparkleco.demo` |
 | Client portal | `hannah.lee@example.com` |
 
@@ -99,3 +102,7 @@ curl -X POST https://<your-app>/api/webhooks/feedback \
 ```
 
 Responses: `201` created (includes the updated health score), `200` duplicate, `401` bad secret, `404` unknown client, `422` unrecognized payload.
+
+Phone calls go to `/api/webhooks/calls` with the same secret header. It accepts call-tracking style payloads (`id`, `customer_phone_number`, `agent_email`, `start_time`, `duration`, `transcription` as text or `[{speaker, text}]`) or the native format (`caller_phone`, `rep_email`, `started_at`, `duration_sec`, `transcript`). Each call is analyzed on arrival and the response includes the classification.
+
+The demo seed classifies its 22 calls with keyword rules (no API cost). With an API key set, click **Sales → Analyze calls with AI** once to get full analysis and coaching scores.

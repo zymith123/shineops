@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { requireRole, STAFF } from "@/lib/auth";
 import { assessClient } from "@/lib/health/service";
-import { aiEnabled } from "@/lib/health/ai";
+import { aiEnabled } from "@/lib/ai/client";
 
 export async function reanalyzeClient(clientId: string) {
   const user = await requireRole(STAFF);

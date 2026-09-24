@@ -4,7 +4,8 @@ import { db, schema } from "@/db";
 import { addDays, daysBetween, formatMoney, today, toISODate } from "@/lib/dates";
 import { computeSignals } from "./signals";
 import { scoreWithRules, type Assessment } from "./rules";
-import { aiEnabled, scoreWithAI } from "./ai";
+import { aiEnabled } from "@/lib/ai/client";
+import { scoreWithAI } from "./ai";
 
 /**
  * Recomputes one client's health, stores the assessment, and keeps a single open
@@ -30,10 +31,16 @@ export async function assessClient(companyId: string, clientId: string, opts: { 
     .from(schema.visits)
     .where(and(eq(schema.visits.clientId, clientId), gte(schema.visits.scheduledDate, since)));
 
+  const callRows = await db
+    .select({ startedAt: schema.calls.startedAt, type: schema.calls.type, summary: schema.calls.summary })
+    .from(schema.calls)
+    .where(and(eq(schema.calls.clientId, clientId), gte(schema.calls.startedAt, new Date(`${since}T00:00:00Z`))));
+
   const signals = computeSignals(
     feedbackRows.map((f) => ({ rating: f.rating, comment: f.comment, date: toISODate(f.createdAt) })),
     visitRows.map((v) => ({ date: v.scheduledDate, status: v.status, cleanerId: v.cleanerId })),
     now,
+    callRows.flatMap((c) => (c.type ? [{ date: toISODate(c.startedAt), type: c.type, summary: c.summary ?? "" }] : [])),
   );
 
   let assessment: Assessment | null = null;

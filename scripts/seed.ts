@@ -9,6 +9,9 @@ import { db, schema } from "../src/db";
 import { addDays, planDates, today } from "../src/lib/dates";
 import { assessClient } from "../src/lib/health/service";
 import type { Frequency } from "../src/db/schema";
+import { analyzeCalls } from "../src/lib/calls/service";
+import { normalizePhone } from "../src/lib/calls/phone";
+import { SEED_CALLS, toTranscript } from "./seed-calls";
 
 // Deterministic randomness so every seed produces the same demo.
 let rngState = 42;
@@ -156,7 +159,7 @@ async function main() {
   console.log(`Seeding demo data (today = ${now})…`);
 
   await db.execute(
-    sql`TRUNCATE ${schema.tasks}, ${schema.healthAssessments}, ${schema.feedback}, ${schema.visits}, ${schema.servicePlans}, ${schema.users}, ${schema.clients}, ${schema.companies} CASCADE`,
+    sql`TRUNCATE ${schema.calls}, ${schema.leads}, ${schema.tasks}, ${schema.healthAssessments}, ${schema.feedback}, ${schema.visits}, ${schema.servicePlans}, ${schema.users}, ${schema.clients}, ${schema.companies} CASCADE`,
   );
 
   const [company] = await db
@@ -169,6 +172,7 @@ async function main() {
     .values([
       { companyId: company.id, name: "Sophie Bennett", email: "owner@sparkleco.demo", role: "owner", passwordHash },
       { companyId: company.id, name: "Rachel Ops", email: "manager@sparkleco.demo", role: "manager", passwordHash },
+      { companyId: company.id, name: "Kim Tran", email: "kim@sparkleco.demo", role: "manager", passwordHash },
       { companyId: company.id, name: "Maria Santos", email: "maria@sparkleco.demo", role: "cleaner", passwordHash },
       { companyId: company.id, name: "James Carter", email: "james@sparkleco.demo", role: "cleaner", passwordHash },
       { companyId: company.id, name: "Aisha Khan", email: "aisha@sparkleco.demo", role: "cleaner", passwordHash },
@@ -214,6 +218,29 @@ async function main() {
     },
   ]);
 
+
+  // Phone calls, classified with the keyword rules (no API cost at seed time).
+  // "Analyze calls with AI" in the app upgrades them to full AI analysis.
+  const reps = { rachel: manager.id, kim: staff.find((u) => u.email === "kim@sparkleco.demo")!.id };
+  await db.insert(schema.calls).values(
+    SEED_CALLS.map((c, i) => {
+      const client = c.client ? clientRows.find((r) => r.name === c.client) : undefined;
+      if (c.client && !client) throw new Error(`Seed call references unknown client ${c.client}`);
+      const startedAt = new Date(`${addDays(now, -c.daysAgo)}T${String(c.hour).padStart(2, "0")}:${String((i * 7) % 60).padStart(2, "0")}:00Z`);
+      return {
+        companyId: company.id,
+        externalId: `seed-${i}`,
+        direction: c.direction,
+        callerName: c.callerName ?? "",
+        callerPhone: normalizePhone(client?.phone ?? c.phone!),
+        repId: c.rep ? reps[c.rep] : null,
+        startedAt,
+        durationSec: Math.round(20 + c.lines.join(" ").length / 3.2 + ((i * 13) % 20)),
+        transcript: toTranscript(c.lines),
+      };
+    }),
+  );
+  await analyzeCalls(company.id, { useAI: false });
 
   // A second, smaller customer so the platform admin console has more than one company.
   const [freshnest] = await db

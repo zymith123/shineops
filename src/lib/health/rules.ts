@@ -49,6 +49,22 @@ export function scoreWithRules(s: HealthSignals, clientName: string): Assessment
       `Owner should call ${clientName} today with a retention offer.`,
     );
   }
+  if (s.cancellationCalls60d > 0) {
+    add(
+      40, // a phone call about cancelling is the strongest signal we have
+      "Called about cancelling",
+      `${s.cancellationCalls60d} call${s.cancellationCalls60d === 1 ? "" : "s"} about cancelling in the last 60 days.`,
+      `Owner should call ${clientName} back today: acknowledge the issue and offer a fix before they cancel.`,
+    );
+  }
+  if (s.complaintCalls60d > 0) {
+    add(
+      15,
+      "Complaint call",
+      `${s.complaintCalls60d} complaint call${s.complaintCalls60d === 1 ? "" : "s"} in the last 60 days.`,
+      `Follow up with ${clientName} on their complaint call and confirm it's resolved.`,
+    );
+  }
   if (s.distinctCleanersLast5 >= 3 || s.complaintThemes.includes("inconsistent cleaner")) {
     add(
       20,
