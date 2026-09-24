@@ -16,6 +16,7 @@ Residential cleaning companies live on weekly and biweekly clients, and most can
 | **Cleaner app** | "My day": addresses, entry instructions, pets, a heads-up if the client's last rating was low, mark complete or report a problem |
 | **Client portal** | Clients see upcoming cleans, rate each visit, and send requests (reschedule, deep clean, pause) |
 | **Team & roles** | Owner / Manager / Cleaner / Client, with invites, role changes and deactivation |
+| **Platform admin** | Operator console across all companies: companies with revenue and at-risk counts, onboard a new company with its first owner, search every user, add users to any company, change roles, reset passwords, deactivate. Every company always keeps at least one active owner |
 | **Integrations** | Feedback webhook that accepts three payload formats (native, review-platform events, NPS surveys), normalizes them, de-duplicates by external id, and re-scores health immediately |
 
 ## Tech stack & architecture
@@ -33,7 +34,7 @@ Browser ──► Next.js 16 (App Router, React 19 Server Components)
 - **Backend:** Next.js Server Actions + Route Handlers
 - **Database:** PostgreSQL via Drizzle ORM (typed schema, SQL migrations in `drizzle/`)
 - **Auth:** email + password (bcrypt), signed HTTP-only JWT session cookie (jose). The user is re-loaded from the database on every request, so deactivation and role changes apply immediately
-- **Multi-tenancy:** every row carries `company_id`; every query and mutation is scoped to the signed-in user's company, and ids from forms (cleaners, clients) are verified to belong to that company
+- **Multi-tenancy:** every row carries `company_id`; every query and mutation is scoped to the signed-in user's company, and ids from forms (cleaners, clients) are verified to belong to that company. Platform admins are the only users without a company (enforced by a database check constraint) and have their own guard (`requireAdmin`), separate from company pages (`requireRole`)
 - **AI:** Anthropic SDK, structured outputs validated with Zod, with an automatic fallback to the rules engine if the key is missing or a call fails
 - **Tests:** Vitest unit tests for schedule math, health scoring and webhook normalization
 - **Hosting:** Vercel + Supabase
@@ -44,6 +45,7 @@ Browser ──► Next.js 16 (App Router, React 19 Server Components)
 src/
   app/(app)/        staff & cleaner pages: dashboard, clients, schedule, tasks, team, settings, today
   app/portal/       client portal
+  app/admin/        platform admin console (companies, all users)
   app/api/webhooks/ inbound feedback webhook
   db/schema.ts      database schema
   lib/actions/      server actions (clients, visits, tasks, team, portal, health)
@@ -65,7 +67,15 @@ npm run db:seed               # demo company (WARNING: wipes existing data)
 npm run dev                   # http://localhost:3000
 ```
 
-Demo logins (password `demo1234`): `owner@sparkleco.demo`, `manager@sparkleco.demo`, `maria@sparkleco.demo` (cleaner), `hannah.lee@example.com` (client portal).
+Demo logins (password `demo1234`):
+
+| Role | Email |
+|---|---|
+| Platform admin | `admin@shineops.demo` |
+| Owner | `owner@sparkleco.demo` (a second company: `owner@freshnest.demo`) |
+| Manager | `manager@sparkleco.demo` |
+| Cleaner | `maria@sparkleco.demo` |
+| Client portal | `hannah.lee@example.com` |
 
 ```bash
 npm test           # unit tests

@@ -6,7 +6,7 @@ import type { Role } from "@/db/schema";
 const COOKIE = "shineops_session";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
-export type SessionPayload = { userId: string; companyId: string; role: Role };
+export type SessionPayload = { userId: string; companyId: string | null; role: Role };
 
 function key() {
   const secret = process.env.SESSION_SECRET;

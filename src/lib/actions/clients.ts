@@ -9,6 +9,7 @@ import { db, schema } from "@/db";
 import { requireRole, STAFF } from "@/lib/auth";
 import { assessClient } from "@/lib/health/service";
 import { today } from "@/lib/dates";
+import { generateTempPassword } from "@/lib/users";
 
 export type FormState = { error?: string; ok?: string };
 
@@ -166,7 +167,7 @@ export async function grantPortalAccess(clientId: string): Promise<{ email: stri
     .where(and(eq(schema.clients.id, clientId), eq(schema.clients.companyId, user.companyId)));
   if (!client) return { error: "Client not found." };
 
-  const tempPassword = crypto.randomUUID().slice(0, 8);
+  const tempPassword = generateTempPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 10);
   const [existing] = await db.select().from(schema.users).where(eq(schema.users.email, client.email));
   if (existing && existing.clientId !== client.id) return { error: "That email is already used by another login." };

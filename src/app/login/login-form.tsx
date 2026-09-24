@@ -9,6 +9,7 @@ const DEMO_ACCOUNTS = [
   { label: "Manager", email: "manager@sparkleco.demo" },
   { label: "Cleaner", email: "maria@sparkleco.demo" },
   { label: "Client", email: "hannah.lee@example.com" },
+  { label: "Platform admin", email: "admin@shineops.demo" },
 ];
 
 export function LoginForm() {
@@ -33,7 +34,7 @@ export function LoginForm() {
 
       <div className="mt-6 border-t border-slate-100 pt-5">
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">Demo accounts (password: demo1234)</p>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 [&>button:last-child]:col-span-2">
           {DEMO_ACCOUNTS.map((a) => (
             <button
               key={a.email}

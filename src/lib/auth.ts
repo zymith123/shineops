@@ -1,24 +1,28 @@
 import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Role } from "@/db/schema";
 import { readSession } from "./session";
 
-export type CurrentUser = {
+type SessionUser = {
   id: string;
-  companyId: string;
-  companyName: string;
+  companyId: string | null;
+  companyName: string | null;
   name: string;
   email: string;
   role: Role;
   clientId: string | null;
 };
 
+/** A user who belongs to a company (everyone except platform admins). */
+export type CurrentUser = SessionUser & { companyId: string; companyName: string; role: Exclude<Role, "admin"> };
+export type AdminUser = SessionUser & { role: "admin" };
+
 // Re-checks the user against the DB on every request, so deactivating a user
 // or changing their role takes effect immediately instead of when the JWT expires.
-export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
+export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const session = await readSession();
   if (!session) return null;
   const [row] = await db
@@ -33,9 +37,10 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       active: schema.users.active,
     })
     .from(schema.users)
-    .innerJoin(schema.companies, eq(schema.companies.id, schema.users.companyId))
-    .where(and(eq(schema.users.id, session.userId), eq(schema.users.companyId, session.companyId)));
-  if (!row || !row.active) return null;
+    .leftJoin(schema.companies, eq(schema.companies.id, schema.users.companyId))
+    .where(eq(schema.users.id, session.userId));
+  // A session is only valid for the company it was issued for.
+  if (!row || !row.active || row.companyId !== session.companyId) return null;
   return {
     id: row.id,
     companyId: row.companyId,
@@ -47,18 +52,27 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   };
 });
 
-export const STAFF: Role[] = ["owner", "manager"];
+export const STAFF: Exclude<Role, "admin">[] = ["owner", "manager"];
 
 export function homeFor(role: Role) {
+  if (role === "admin") return "/admin";
   if (role === "cleaner") return "/today";
   if (role === "client") return "/portal";
   return "/dashboard";
 }
 
-/** Use at the top of every page and server action. Redirects if not allowed. */
-export async function requireRole(roles: Role[]): Promise<CurrentUser> {
+/** Use at the top of every company page and server action. Redirects if not allowed. */
+export async function requireRole(roles: Exclude<Role, "admin">[]): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (!roles.includes(user.role)) redirect(homeFor(user.role));
-  return user;
+  if (user.role === "admin" || !user.companyId || !roles.includes(user.role)) redirect(homeFor(user.role));
+  return user as CurrentUser;
+}
+
+/** Use at the top of every /admin page and admin server action. */
+export async function requireAdmin(): Promise<AdminUser> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.role !== "admin") redirect(homeFor(user.role));
+  return user as AdminUser;
 }

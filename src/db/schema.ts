@@ -10,9 +10,12 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
-export const roleEnum = pgEnum("role", ["owner", "manager", "cleaner", "client"]);
+// "admin" is a platform operator: belongs to no company and manages all of them.
+export const roleEnum = pgEnum("role", ["owner", "manager", "cleaner", "client", "admin"]);
 export const clientStatusEnum = pgEnum("client_status", ["active", "paused", "cancelled"]);
 export const frequencyEnum = pgEnum("frequency", ["weekly", "biweekly", "monthly"]);
 export const visitStatusEnum = pgEnum("visit_status", ["scheduled", "completed", "skipped", "cancelled"]);
@@ -55,7 +58,8 @@ export const users = pgTable(
   "users",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    // Null only for platform admins.
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
@@ -65,7 +69,12 @@ export const users = pgTable(
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("users_email_idx").on(t.email), index("users_company_idx").on(t.companyId)],
+  (t) => [
+    uniqueIndex("users_email_idx").on(t.email),
+    index("users_company_idx").on(t.companyId),
+    // Compared as text so the migration can add the enum value and this check in one transaction.
+    check("users_admin_company_check", sql`(${t.role}::text = 'admin') = (${t.companyId} is null)`),
+  ],
 );
 
 export const servicePlans = pgTable(
