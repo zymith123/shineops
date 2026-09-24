@@ -96,7 +96,7 @@ export function ActionForm({
     <form action={formAction} className="space-y-4">
       {children}
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" loading={pending}>
           {pending ? "Saving…" : submitLabel}
         </Button>
         {state.error && <p className="text-sm text-red-600">{state.error}</p>}

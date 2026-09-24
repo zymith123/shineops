@@ -9,11 +9,13 @@ export function FinishVisit({ visitId }: { visitId: string }) {
   const [notes, setNotes] = useState("");
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
+  const [clicked, setClicked] = useState<"completed" | "skipped" | null>(null);
   const submit = (outcome: "completed" | "skipped") => {
     if (outcome === "skipped" && !notes.trim()) {
       setError("Add a note explaining why the clean couldn't be done.");
       return;
     }
+    setClicked(outcome);
     start(async () => {
       try {
         await finishVisit(visitId, outcome, notes);
@@ -33,10 +35,10 @@ export function FinishVisit({ visitId }: { visitId: string }) {
       />
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex flex-wrap gap-2">
-        <Button disabled={pending} onClick={() => submit("completed")}>
+        <Button disabled={pending} loading={pending && clicked === "completed"} onClick={() => submit("completed")}>
           <CheckCircle2 className="h-4 w-4" /> Mark complete
         </Button>
-        <Button variant="secondary" disabled={pending} onClick={() => submit("skipped")}>
+        <Button variant="secondary" disabled={pending} loading={pending && clicked === "skipped"} onClick={() => submit("skipped")}>
           Couldn&apos;t complete
         </Button>
       </div>

@@ -36,7 +36,7 @@ export function RateVisit({ visitId }: { visitId: string }) {
             placeholder={rating >= 4 ? "Anything you loved? (optional)" : "What could we have done better?"}
             className={inputClass}
           />
-          <Button type="submit" size="sm" disabled={pending}>
+          <Button type="submit" size="sm" loading={pending}>
             {pending ? "Sending…" : "Submit rating"}
           </Button>
         </>
@@ -62,7 +62,7 @@ export function RequestForm() {
         <textarea name="message" rows={3} required className={inputClass} />
       </Field>
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" loading={pending}>
           {pending ? "Sending…" : "Send request"}
         </Button>
         {state.error && <p className="text-sm text-red-600">{state.error}</p>}

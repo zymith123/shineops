@@ -10,6 +10,7 @@ import { formatDate, formatMoney, monthlyValueCents, today } from "@/lib/dates";
 import { Badge, Card, CardHeader, Empty, Field, HealthBadge, inputClass, PageHeader, Stars } from "@/components/ui";
 import { ActionForm, ClientFields, PlanFields } from "@/components/client-form";
 import { ClientStatusMenu, PortalAccess, ReanalyzeButton } from "./client-actions";
+import { LinkPending } from "@/components/loading";
 
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireRole(STAFF);
@@ -64,6 +65,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     <>
       <Link href="/clients" className="mb-3 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800">
         <ArrowLeft className="h-3 w-3" /> Clients
+        <LinkPending className="h-3 w-3" />
       </Link>
       <PageHeader
         title={client.name}
@@ -172,8 +174,9 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                   </li>
                 ))}
                 <li className="px-5 py-2">
-                  <Link href="/tasks" className="text-xs text-brand-700 hover:underline">
+                  <Link href="/tasks" className="inline-flex items-center gap-1 text-xs text-brand-700 hover:underline">
                     Open task queue →
+                    <LinkPending className="h-3 w-3" />
                   </Link>
                 </li>
               </ul>

@@ -18,7 +18,7 @@ export function CreateCompanyForm() {
       <Field label="Owner email" hint="They log in with this and see only their own company.">
         <input name="ownerEmail" type="email" required className={inputClass} />
       </Field>
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" loading={pending}>
         {pending ? "Creating…" : "Create company"}
       </Button>
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}

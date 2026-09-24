@@ -9,7 +9,7 @@ import { Badge, Button } from "@/components/ui";
 export function ReanalyzeButton({ clientId }: { clientId: string }) {
   const [pending, start] = useTransition();
   return (
-    <Button size="sm" variant="secondary" disabled={pending} onClick={() => start(() => reanalyzeClient(clientId))}>
+    <Button size="sm" variant="secondary" loading={pending} onClick={() => start(() => reanalyzeClient(clientId))}>
       <Sparkles className="h-3.5 w-3.5" />
       {pending ? "Analyzing…" : "Re-analyze"}
     </Button>
@@ -18,24 +18,27 @@ export function ReanalyzeButton({ clientId }: { clientId: string }) {
 
 export function ClientStatusMenu({ clientId, status }: { clientId: string; status: "active" | "paused" | "cancelled" }) {
   const [pending, start] = useTransition();
+  const [target, setTarget] = useState<typeof status | null>(null);
   const set = (s: typeof status, confirmText?: string) => {
     if (confirmText && !confirm(confirmText)) return;
+    setTarget(s);
     start(() => setClientStatus(clientId, s));
   };
+  const busy = (s: typeof status) => pending && target === s;
   return (
     <div className="flex items-center gap-2">
       <Badge tone={status === "active" ? "green" : "slate"}>{status}</Badge>
       {status === "active" ? (
         <>
-          <Button size="sm" variant="secondary" disabled={pending} onClick={() => set("paused", "Pause this client? Upcoming visits will be cancelled.")}>
+          <Button size="sm" variant="secondary" disabled={pending} loading={busy("paused")} onClick={() => set("paused", "Pause this client? Upcoming visits will be cancelled.")}>
             Pause
           </Button>
-          <Button size="sm" variant="danger" disabled={pending} onClick={() => set("cancelled", "Mark this client as cancelled? Upcoming visits will be cancelled.")}>
+          <Button size="sm" variant="danger" disabled={pending} loading={busy("cancelled")} onClick={() => set("cancelled", "Mark this client as cancelled? Upcoming visits will be cancelled.")}>
             Cancel service
           </Button>
         </>
       ) : (
-        <Button size="sm" disabled={pending} onClick={() => set("active")}>
+        <Button size="sm" loading={busy("active")} onClick={() => set("active")}>
           Reactivate
         </Button>
       )}
@@ -53,7 +56,7 @@ export function PortalAccess({ clientId, hasLogin, email }: { clientId: string; 
           ? `${email} can log in to see upcoming cleans, rate visits, and send requests.`
           : "Give this client a login to rate visits and request changes themselves."}
       </p>
-      <Button size="sm" variant="secondary" disabled={pending} onClick={() => start(async () => setResult(await grantPortalAccess(clientId)))}>
+      <Button size="sm" variant="secondary" loading={pending} onClick={() => start(async () => setResult(await grantPortalAccess(clientId)))}>
         {hasLogin ? "Reset password" : "Invite to portal"}
       </Button>
       {result && "error" in result && <p className="text-red-600">{result.error}</p>}

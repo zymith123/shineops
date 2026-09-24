@@ -4,6 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import { addUser, adminChangeRole, adminResetPassword, adminSetActive, type CreatedLogin } from "@/lib/actions/admin";
 import type { Role } from "@/db/schema";
 import { Badge, Button, Field, inputClass } from "@/components/ui";
+import { InlineSpinner } from "@/components/loading";
 import { TempPassword } from "@/components/temp-password";
 
 type Row = {
@@ -21,7 +22,9 @@ export function UserRow({ user, isSelf }: { user: Row; isSelf: boolean }) {
   const [error, setError] = useState("");
   const [reset, setReset] = useState<{ email: string; tempPassword: string } | null>(null);
   const [role, setRole] = useState(user.role);
-  const run = (fn: () => Promise<unknown>, onError?: () => void) =>
+  const [busy, setBusy] = useState<"role" | "reset" | "active" | null>(null);
+  const run = (what: typeof busy, fn: () => Promise<unknown>, onError?: () => void) => {
+    setBusy(what);
     start(async () => {
       setError("");
       try {
@@ -35,6 +38,7 @@ export function UserRow({ user, isSelf }: { user: Row; isSelf: boolean }) {
         setError("Something went wrong. Refresh and try again.");
       }
     });
+  };
 
   // Admins and client portal logins have fixed roles; staff roles can be changed here.
   const isStaff = !user.clientId && user.role !== "admin";
@@ -56,21 +60,24 @@ export function UserRow({ user, isSelf }: { user: Row; isSelf: boolean }) {
       <td className="px-5 py-3">{user.companyName ?? <Badge tone="amber">Platform</Badge>}</td>
       <td className="px-5 py-3">
         {isStaff ? (
-          <select
-            aria-label={`Role for ${user.name}`}
-            value={role}
-            disabled={pending}
-            onChange={(e) => {
-              const next = e.target.value as Role;
-              setRole(next);
-              run(() => adminChangeRole(user.id, next), () => setRole(user.role));
-            }}
-            className={`${inputClass} w-32 py-1.5`}
-          >
-            <option value="owner">Owner</option>
-            <option value="manager">Manager</option>
-            <option value="cleaner">Cleaner</option>
-          </select>
+          <span className="inline-flex items-center gap-1.5">
+            <select
+              aria-label={`Role for ${user.name}`}
+              value={role}
+              disabled={pending}
+              onChange={(e) => {
+                const next = e.target.value as Role;
+                setRole(next);
+                run("role", () => adminChangeRole(user.id, next), () => setRole(user.role));
+              }}
+              className={`${inputClass} w-32 py-1.5`}
+            >
+              <option value="owner">Owner</option>
+              <option value="manager">Manager</option>
+              <option value="cleaner">Cleaner</option>
+            </select>
+            <InlineSpinner show={pending && busy === "role"} />
+          </span>
         ) : (
           <span className="capitalize">{user.role}</span>
         )}
@@ -83,14 +90,15 @@ export function UserRow({ user, isSelf }: { user: Row; isSelf: boolean }) {
       <td className="px-5 py-3">
         {user.role !== "admin" && (
           <div className="flex justify-end gap-2">
-            <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(async () => setReset(await adminResetPassword(user.id)))}>
+            <Button size="sm" variant="secondary" disabled={pending} loading={pending && busy === "reset"} onClick={() => run("reset", async () => setReset(await adminResetPassword(user.id)))}>
               Reset password
             </Button>
             <Button
               size="sm"
               variant={user.active ? "danger" : "secondary"}
               disabled={pending}
-              onClick={() => run(() => adminSetActive(user.id, !user.active))}
+              loading={pending && busy === "active"}
+              onClick={() => run("active", () => adminSetActive(user.id, !user.active))}
             >
               {user.active ? "Deactivate" : "Reactivate"}
             </Button>
@@ -130,7 +138,7 @@ export function AddUserForm({ companies, defaultCompanyId }: { companies: { id: 
           <option value="cleaner">Cleaner</option>
         </select>
       </Field>
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" loading={pending}>
         {pending ? "Adding…" : "Add user"}
       </Button>
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}

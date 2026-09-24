@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { LayoutDashboard, Users, CalendarDays, ListTodo, UserCog, Settings, Sun, Building2, ShieldCheck } from "lucide-react";
 import type { Role } from "@/db/schema";
+import { LinkPending } from "./loading";
 
 const ITEMS: { href: string; label: string; icon: React.ElementType; roles: Role[] }[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["owner", "manager"] },
@@ -41,9 +42,12 @@ export function Nav({ role, openTasks = 0, dark = false }: { role: Role; openTas
           >
             <Icon className="h-4 w-4" />
             {label}
-            {href === "/tasks" && openTasks > 0 && (
-              <span className="ml-auto rounded-full bg-red-500 px-1.5 text-[10px] font-semibold text-white">{openTasks}</span>
-            )}
+            <span className="ml-auto flex items-center gap-1.5">
+              {href === "/tasks" && openTasks > 0 && (
+                <span className="rounded-full bg-red-500 px-1.5 text-[10px] font-semibold text-white">{openTasks}</span>
+              )}
+              <LinkPending className={dark ? "[&_svg]:text-slate-400" : undefined} />
+            </span>
           </Link>
         );
       })}

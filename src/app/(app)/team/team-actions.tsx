@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { changeRole, inviteMember, setMemberActive, type InviteState } from "@/lib/actions/team";
 import { Badge, Button, Field, inputClass } from "@/components/ui";
+import { InlineSpinner } from "@/components/loading";
 
 export function InviteForm() {
   const [state, action, pending] = useActionState<InviteState, FormData>(inviteMember, {});
@@ -21,7 +22,7 @@ export function InviteForm() {
           <option value="owner">Owner</option>
         </select>
       </Field>
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" loading={pending}>
         {pending ? "Inviting…" : "Send invite"}
       </Button>
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
@@ -45,7 +46,9 @@ export function MemberRow({
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
   const [role, setRole] = useState(member.role);
-  const run = (fn: () => Promise<unknown>, onError?: () => void) =>
+  const [busy, setBusy] = useState<"role" | "active" | null>(null);
+  const run = (what: typeof busy, fn: () => Promise<unknown>, onError?: () => void) => {
+    setBusy(what);
     start(async () => {
       setError("");
       try {
@@ -59,6 +62,7 @@ export function MemberRow({
         setError("Something went wrong. Refresh and try again.");
       }
     });
+  };
   return (
     <li className="flex flex-wrap items-center gap-3 px-5 py-3">
       <div className="min-w-0 flex-1">
@@ -75,7 +79,7 @@ export function MemberRow({
         onChange={(e) => {
           const next = e.target.value;
           setRole(next);
-          run(() => changeRole(member.id, next), () => setRole(member.role));
+          run("role", () => changeRole(member.id, next), () => setRole(member.role));
         }}
         className={`${inputClass} w-32 py-1.5`}
       >
@@ -83,8 +87,15 @@ export function MemberRow({
         <option value="manager">Manager</option>
         <option value="cleaner">Cleaner</option>
       </select>
+      <InlineSpinner show={pending && busy === "role"} />
       {!isSelf && (
-        <Button size="sm" variant={member.active ? "danger" : "secondary"} disabled={pending} onClick={() => run(() => setMemberActive(member.id, !member.active))}>
+        <Button
+          size="sm"
+          variant={member.active ? "danger" : "secondary"}
+          disabled={pending}
+          loading={pending && busy === "active"}
+          onClick={() => run("active", () => setMemberActive(member.id, !member.active))}
+        >
           {member.active ? "Deactivate" : "Reactivate"}
         </Button>
       )}

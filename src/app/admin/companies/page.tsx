@@ -4,6 +4,7 @@ import { listCompaniesWithStats } from "@/lib/admin-queries";
 import { formatMoney } from "@/lib/dates";
 import { Badge, Card, CardHeader, Empty, PageHeader } from "@/components/ui";
 import { CreateCompanyForm } from "./create-company-form";
+import { LinkPending } from "@/components/loading";
 
 export default async function CompaniesPage() {
   await requireAdmin();
@@ -45,8 +46,12 @@ export default async function CompaniesPage() {
                   {companies.map((c) => (
                     <tr key={c.id} className="hover:bg-slate-50">
                       <td className="px-5 py-3">
-                        <Link href={`/admin/users?company=${c.id}`} className="font-medium hover:text-brand-700 hover:underline">
+                        <Link
+                          href={`/admin/users?company=${c.id}`}
+                          className="inline-flex items-center gap-1.5 font-medium hover:text-brand-700 hover:underline"
+                        >
                           {c.name}
+                          <LinkPending />
                         </Link>
                         <p className="text-xs text-slate-400">
                           Joined {c.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}

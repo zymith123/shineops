@@ -8,6 +8,7 @@ import { addDays, formatMoney, monthlyValueCents, parseISODate, today } from "@/
 import { Card, CardHeader, Empty, HealthBadge, PageHeader } from "@/components/ui";
 import { RatingTrend } from "@/components/rating-trend";
 import { ReanalyzeAllButton } from "./reanalyze-all";
+import { LinkPending } from "@/components/loading";
 
 export default async function DashboardPage() {
   const user = await requireRole(STAFF);
@@ -138,8 +139,9 @@ export default async function DashboardPage() {
           <CardHeader
             title="Clients needing attention"
             action={
-              <Link href="/clients" className="text-xs text-brand-700 hover:underline">
+              <Link href="/clients" className="inline-flex items-center gap-1 text-xs text-brand-700 hover:underline">
                 All clients
+                <LinkPending className="h-3 w-3" />
               </Link>
             }
           />
@@ -157,7 +159,10 @@ export default async function DashboardPage() {
                       </div>
                       <p className="mt-1 text-sm text-slate-500">{a.action}</p>
                     </div>
-                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-300" />
+                    <span className="mt-1 flex items-center gap-1">
+                      <LinkPending />
+                      <ArrowRight className="h-4 w-4 shrink-0 text-slate-300" />
+                    </span>
                   </Link>
                 </li>
               ))}

@@ -1,10 +1,12 @@
 import Link from "next/link";
+import Form from "next/form";
 import clsx from "clsx";
 import { Plus, Search } from "lucide-react";
 import { requireRole, STAFF } from "@/lib/auth";
 import { listClients } from "@/lib/queries";
 import { formatMoney, monthlyValueCents } from "@/lib/dates";
 import { Badge, buttonClass, Card, Empty, HealthBadge, inputClass, PageHeader, Stars } from "@/components/ui";
+import { FormPending, LinkPending } from "@/components/loading";
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -35,27 +37,30 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
         action={
           <Link href="/clients/new" className={buttonClass()}>
             <Plus className="h-4 w-4" /> Add client
+            <LinkPending collapse className="[&_svg]:text-white" />
           </Link>
         }
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <form className="relative w-full max-w-xs">
+        <Form action="/clients" className="relative w-full max-w-xs">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <input name="q" defaultValue={q} placeholder="Search name, email, address…" className={clsx(inputClass, "pl-9")} />
+          <input name="q" defaultValue={q} placeholder="Search name, email, address…" className={clsx(inputClass, "pl-9 pr-9")} />
           <input type="hidden" name="filter" value={filter} />
-        </form>
+          <FormPending className="absolute right-3 top-2.5" />
+        </Form>
         <div className="flex flex-wrap gap-1">
           {FILTERS.map((f) => (
             <Link
               key={f.key}
               href={{ pathname: "/clients", query: { ...(q ? { q } : {}), filter: f.key } }}
               className={clsx(
-                "rounded-full px-3 py-1 text-xs font-medium",
+                "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium",
                 filter === f.key ? "bg-slate-900 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50",
               )}
             >
               {f.label}
+              <LinkPending collapse className="-mr-1" />
             </Link>
           ))}
         </div>
@@ -80,8 +85,9 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                 {clients.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-50">
                     <td className="px-5 py-3">
-                      <Link href={`/clients/${c.id}`} className="font-medium hover:text-brand-700 hover:underline">
+                      <Link href={`/clients/${c.id}`} className="inline-flex items-center gap-1.5 font-medium hover:text-brand-700 hover:underline">
                         {c.name}
+                        <LinkPending />
                       </Link>
                       <p className="text-xs text-slate-400">{c.address}</p>
                     </td>

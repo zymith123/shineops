@@ -5,6 +5,7 @@ import { requireRole, STAFF } from "@/lib/auth";
 import { addDays, formatDate, formatMoney, today } from "@/lib/dates";
 import { Badge, Card, CardHeader, Empty, PageHeader } from "@/components/ui";
 import { AssignSelect, GenerateButton } from "./schedule-actions";
+import { LinkPending } from "@/components/loading";
 
 export default async function SchedulePage() {
   const user = await requireRole(STAFF);
@@ -65,8 +66,9 @@ export default async function SchedulePage() {
                 {dayVisits.map((v) => (
                   <li key={v.id} className="flex flex-wrap items-center gap-3 px-5 py-2.5 text-sm">
                     <div className="min-w-0 flex-1">
-                      <Link href={`/clients/${v.clientId}`} className="font-medium hover:underline">
+                      <Link href={`/clients/${v.clientId}`} className="inline-flex items-center gap-1.5 font-medium hover:underline">
                         {v.clientName}
+                        <LinkPending />
                       </Link>
                       <p className="truncate text-xs text-slate-400">{v.address}</p>
                     </div>

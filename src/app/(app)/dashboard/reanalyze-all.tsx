@@ -12,7 +12,7 @@ export function ReanalyzeAllButton() {
     <div className="flex items-center gap-3">
       {result && <span className="text-xs text-slate-500">{result}</span>}
       <Button
-        disabled={pending}
+        loading={pending}
         onClick={() =>
           start(async () => {
             const r = await reanalyzeAll();
