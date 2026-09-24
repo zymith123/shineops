@@ -44,13 +44,19 @@ export function MemberRow({
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
-  const run = (fn: () => Promise<void>) =>
+  const [role, setRole] = useState(member.role);
+  const run = (fn: () => Promise<unknown>, onError?: () => void) =>
     start(async () => {
       setError("");
       try {
-        await fn();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Something went wrong");
+        const result = await fn();
+        if (result && typeof result === "object" && "error" in result && typeof result.error === "string") {
+          onError?.();
+          setError(result.error);
+        }
+      } catch {
+        onError?.();
+        setError("Something went wrong. Refresh and try again.");
       }
     });
   return (
@@ -64,9 +70,13 @@ export function MemberRow({
       {!member.active && <Badge tone="red">Deactivated</Badge>}
       <select
         aria-label="Role"
-        defaultValue={member.role}
+        value={role}
         disabled={pending || isSelf}
-        onChange={(e) => run(() => changeRole(member.id, e.target.value))}
+        onChange={(e) => {
+          const next = e.target.value;
+          setRole(next);
+          run(() => changeRole(member.id, next), () => setRole(member.role));
+        }}
         className={`${inputClass} w-32 py-1.5`}
       >
         <option value="owner">Owner</option>

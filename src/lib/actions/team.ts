@@ -6,10 +6,11 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { requireRole } from "@/lib/auth";
+import { generateTempPassword, lastOwnerViolation, STAFF_ROLES } from "@/lib/users";
 
 export type InviteState = { error?: string; invited?: { email: string; tempPassword: string } };
 
-const StaffRole = z.enum(["owner", "manager", "cleaner"]);
+const StaffRole = z.enum(STAFF_ROLES);
 
 export async function inviteMember(_prev: InviteState, formData: FormData): Promise<InviteState> {
   const user = await requireRole(["owner"]);
@@ -25,7 +26,7 @@ export async function inviteMember(_prev: InviteState, formData: FormData): Prom
   const [existing] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.email, parsed.data.email));
   if (existing) return { error: "Someone already has a login with that email." };
 
-  const tempPassword = crypto.randomUUID().slice(0, 8);
+  const tempPassword = generateTempPassword();
   await db.insert(schema.users).values({
     companyId: user.companyId,
     ...parsed.data,
@@ -35,35 +36,39 @@ export async function inviteMember(_prev: InviteState, formData: FormData): Prom
   return { invited: { email: parsed.data.email, tempPassword } };
 }
 
-async function assertNotLastOwner(companyId: string, memberId: string) {
-  const owners = await db
-    .select({ id: schema.users.id })
+async function companyStaff(companyId: string) {
+  return db
+    .select({ id: schema.users.id, role: schema.users.role, active: schema.users.active })
     .from(schema.users)
-    .where(and(eq(schema.users.companyId, companyId), eq(schema.users.role, "owner"), eq(schema.users.active, true)));
-  if (owners.length === 1 && owners[0].id === memberId) throw new Error("A company needs at least one active owner.");
+    .where(and(eq(schema.users.companyId, companyId), isNull(schema.users.clientId)));
 }
 
-export async function changeRole(memberId: string, role: string) {
+// Expected failures are returned, not thrown: Next.js hides thrown messages from the client in production.
+export type ActionResult = { error?: string };
+
+export async function changeRole(memberId: string, role: string): Promise<ActionResult> {
   const user = await requireRole(["owner"]);
   const newRole = StaffRole.parse(role);
-  if (newRole !== "owner") await assertNotLastOwner(user.companyId, memberId);
+  const violation = lastOwnerViolation(await companyStaff(user.companyId), memberId, { role: newRole });
+  if (violation) return { error: violation };
   await db
     .update(schema.users)
     .set({ role: newRole })
     // Never touch client portal logins from here.
     .where(and(eq(schema.users.id, memberId), eq(schema.users.companyId, user.companyId), isNull(schema.users.clientId)));
   revalidatePath("/team");
+  return {};
 }
 
-export async function setMemberActive(memberId: string, active: boolean) {
+export async function setMemberActive(memberId: string, active: boolean): Promise<ActionResult> {
   const user = await requireRole(["owner"]);
-  if (!active) {
-    if (memberId === user.id) throw new Error("You can't deactivate yourself.");
-    await assertNotLastOwner(user.companyId, memberId);
-  }
+  if (!active && memberId === user.id) return { error: "You can't deactivate yourself." };
+  const violation = lastOwnerViolation(await companyStaff(user.companyId), memberId, { active });
+  if (violation) return { error: violation };
   await db
     .update(schema.users)
     .set({ active })
     .where(and(eq(schema.users.id, memberId), eq(schema.users.companyId, user.companyId)));
   revalidatePath("/team");
+  return {};
 }

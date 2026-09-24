@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { LayoutDashboard, Users, CalendarDays, ListTodo, UserCog, Settings, Sun } from "lucide-react";
+import { LayoutDashboard, Users, CalendarDays, ListTodo, UserCog, Settings, Sun, Building2, ShieldCheck } from "lucide-react";
 import type { Role } from "@/db/schema";
 
 const ITEMS: { href: string; label: string; icon: React.ElementType; roles: Role[] }[] = [
@@ -14,9 +14,11 @@ const ITEMS: { href: string; label: string; icon: React.ElementType; roles: Role
   { href: "/today", label: "My day", icon: Sun, roles: ["cleaner"] },
   { href: "/team", label: "Team", icon: UserCog, roles: ["owner"] },
   { href: "/settings", label: "Integrations", icon: Settings, roles: ["owner"] },
+  { href: "/admin/companies", label: "Companies", icon: Building2, roles: ["admin"] },
+  { href: "/admin/users", label: "All users", icon: ShieldCheck, roles: ["admin"] },
 ];
 
-export function Nav({ role, openTasks }: { role: Role; openTasks: number }) {
+export function Nav({ role, openTasks = 0, dark = false }: { role: Role; openTasks?: number; dark?: boolean }) {
   const pathname = usePathname();
   return (
     <nav className="flex gap-1 overflow-x-auto md:flex-col">
@@ -28,7 +30,13 @@ export function Nav({ role, openTasks }: { role: Role; openTasks: number }) {
             href={href}
             className={clsx(
               "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition",
-              active ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-100",
+              dark
+                ? active
+                  ? "bg-slate-800 text-white"
+                  : "text-slate-300 hover:bg-slate-800"
+                : active
+                  ? "bg-brand-50 text-brand-700"
+                  : "text-slate-600 hover:bg-slate-100",
             )}
           >
             <Icon className="h-4 w-4" />

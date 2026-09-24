@@ -1,10 +1,10 @@
 /**
- * Resets the database to a realistic demo company.
+ * Resets the database to realistic demo data: two cleaning companies and a platform admin.
  * WARNING: deletes ALL data first. Run with: npm run db:seed
  */
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db, schema } from "../src/db";
 import { addDays, planDates, today } from "../src/lib/dates";
 import { assessClient } from "../src/lib/health/service";
@@ -51,6 +51,106 @@ const CLIENTS: { name: string; email: string; address: string; beds: number; bat
   { name: "Westlake Dental (office)", email: "office@westlakedental.example.com", address: "3500 Bee Cave Rd, Austin, TX", beds: 0, baths: 3, pets: "", frequency: "weekly", price: 240, profile: "happy", monthsAgo: 22 },
 ];
 
+type ClientSeed = (typeof CLIENTS)[number];
+
+/** Clients with plans, ~12 weeks of visit history + 3 weeks ahead, feedback, and an initial health score. */
+async function seedClients(
+  companyId: string,
+  cleaners: { id: string; name: string }[],
+  clients: ClientSeed[],
+  opts: { now: string; passwordHash: string; portalEmails?: string[] },
+) {
+  const { now, passwordHash, portalEmails = [] } = opts;
+  for (const [i, c] of clients.entries()) {
+    const createdAt = new Date(`${addDays(now, -c.monthsAgo * 30)}T12:00:00Z`);
+    const [client] = await db
+      .insert(schema.clients)
+      .values({
+        companyId,
+        name: c.name,
+        email: c.email,
+        phone: `(512) 555-${String(1000 + i * 37).slice(-4)}`,
+        address: c.address,
+        bedrooms: c.beds,
+        bathrooms: c.baths,
+        pets: c.pets,
+        entryNotes: pick(["Lockbox code 4821 on side gate", "Key under the blue planter", "Client works from home, ring bell", "Garage code 1357#"]),
+        createdAt,
+      })
+      .returning();
+
+    const preferred = cleaners[i % cleaners.length];
+    const startDate = addDays(now, -Math.min(c.monthsAgo * 30, 84) - (i % 7));
+    await db.insert(schema.servicePlans).values({
+      companyId,
+      clientId: client.id,
+      frequency: c.frequency,
+      priceCents: c.price * 100,
+      preferredCleanerId: preferred.id,
+      startDate,
+    });
+
+    const dates = planDates(startDate, c.frequency, addDays(now, -84), addDays(now, 21));
+    const pastDates = dates.filter((d) => d < now);
+    for (const [vi, date] of dates.entries()) {
+      const isPast = date < now;
+      const recentIdx = pastDates.length - 1 - pastDates.indexOf(date); // 0 = most recent past visit
+      let cleaner = preferred;
+      let status: "scheduled" | "completed" | "skipped" = isPast ? "completed" : "scheduled";
+      if (c.profile === "inconsistent" && isPast) cleaner = cleaners[vi % cleaners.length];
+      if (c.profile === "unreliable" && isPast && (recentIdx === 1 || recentIdx === 3)) status = "skipped";
+
+      const [visit] = await db
+        .insert(schema.visits)
+        .values({
+          companyId,
+          clientId: client.id,
+          cleanerId: cleaner.id,
+          scheduledDate: date,
+          status,
+          priceCents: c.price * 100,
+          completedAt: status === "completed" ? new Date(`${date}T15:00:00Z`) : null,
+        })
+        .returning();
+
+      // Not every client leaves feedback, but always keep the recent visits that tell each profile's story.
+      const optional = c.profile === "happy" || c.profile === "new" || recentIdx > 4;
+      if (status !== "completed" || (optional && rand() < 0.3)) continue;
+      const fb = feedbackFor(c.profile, recentIdx, cleaner.name);
+      if (!fb) continue;
+      await db.insert(schema.feedback).values({
+        companyId,
+        clientId: client.id,
+        visitId: visit.id,
+        rating: fb.rating,
+        comment: fb.comment,
+        source: rand() < 0.8 ? "portal" : "webhook",
+        createdAt: new Date(`${addDays(date, 1)}T18:00:00Z`),
+      });
+    }
+
+    // Rules only here: seeding shouldn't spend API credits. Use "Re-analyze with AI" in the app.
+    await assessClient(companyId, client.id, { useAI: false });
+    if (portalEmails.includes(c.email)) {
+      await db.insert(schema.users).values({
+        companyId,
+        name: c.name,
+        email: c.email,
+        role: "client",
+        clientId: client.id,
+        passwordHash,
+      });
+    }
+  }
+}
+
+const FRESHNEST_CLIENTS: ClientSeed[] = [
+  { name: "Kevin Walsh", email: "kevin.walsh@example.com", address: "88 Harbor View Rd, San Diego, CA", beds: 3, baths: 2, pets: "", frequency: "biweekly", price: 170, profile: "happy", monthsAgo: 6 },
+  { name: "Maya Singh", email: "maya.singh@example.com", address: "412 Palm Ct, San Diego, CA", beds: 2, baths: 2, pets: "1 cat", frequency: "weekly", price: 145, profile: "quality_drop", monthsAgo: 9 },
+  { name: "The Harper Family", email: "harper.family@example.com", address: "9 Seacrest Ln, Carlsbad, CA", beds: 4, baths: 3, pets: "2 dogs", frequency: "biweekly", price: 210, profile: "happy", monthsAgo: 4 },
+  { name: "Ben Ortiz", email: "ben.ortiz@example.com", address: "2150 Juniper St, San Diego, CA", beds: 1, baths: 1, pets: "", frequency: "monthly", price: 120, profile: "new", monthsAgo: 1 },
+];
+
 async function main() {
   const now = today();
   console.log(`Seeding demo data (today = ${now})…`);
@@ -79,90 +179,10 @@ async function main() {
   const manager = staff.find((u) => u.role === "manager")!;
   const cleaners = staff.filter((u) => u.role === "cleaner");
 
-  for (const [i, c] of CLIENTS.entries()) {
-    const createdAt = new Date(`${addDays(now, -c.monthsAgo * 30)}T12:00:00Z`);
-    const [client] = await db
-      .insert(schema.clients)
-      .values({
-        companyId: company.id,
-        name: c.name,
-        email: c.email,
-        phone: `(512) 555-${String(1000 + i * 37).slice(-4)}`,
-        address: c.address,
-        bedrooms: c.beds,
-        bathrooms: c.baths,
-        pets: c.pets,
-        entryNotes: pick(["Lockbox code 4821 on side gate", "Key under the blue planter", "Client works from home, ring bell", "Garage code 1357#"]),
-        createdAt,
-      })
-      .returning();
-
-    const preferred = cleaners[i % cleaners.length];
-    const startDate = addDays(now, -Math.min(c.monthsAgo * 30, 84) - (i % 7));
-    await db.insert(schema.servicePlans).values({
-      companyId: company.id,
-      clientId: client.id,
-      frequency: c.frequency,
-      priceCents: c.price * 100,
-      preferredCleanerId: preferred.id,
-      startDate,
-    });
-
-    const dates = planDates(startDate, c.frequency, addDays(now, -84), addDays(now, 21));
-    const pastDates = dates.filter((d) => d < now);
-    for (const [vi, date] of dates.entries()) {
-      const isPast = date < now;
-      const recentIdx = pastDates.length - 1 - pastDates.indexOf(date); // 0 = most recent past visit
-      let cleaner = preferred;
-      let status: "scheduled" | "completed" | "skipped" = isPast ? "completed" : "scheduled";
-      if (c.profile === "inconsistent" && isPast) cleaner = cleaners[vi % cleaners.length];
-      if (c.profile === "unreliable" && isPast && (recentIdx === 1 || recentIdx === 3)) status = "skipped";
-
-      const [visit] = await db
-        .insert(schema.visits)
-        .values({
-          companyId: company.id,
-          clientId: client.id,
-          cleanerId: cleaner.id,
-          scheduledDate: date,
-          status,
-          priceCents: c.price * 100,
-          completedAt: status === "completed" ? new Date(`${date}T15:00:00Z`) : null,
-        })
-        .returning();
-
-      // Not every client leaves feedback, but always keep the recent visits that tell each profile's story.
-      const optional = c.profile === "happy" || c.profile === "new" || recentIdx > 4;
-      if (status !== "completed" || (optional && rand() < 0.3)) continue;
-      const fb = feedbackFor(c.profile, recentIdx, cleaner.name);
-      if (!fb) continue;
-      await db.insert(schema.feedback).values({
-        companyId: company.id,
-        clientId: client.id,
-        visitId: visit.id,
-        rating: fb.rating,
-        comment: fb.comment,
-        source: rand() < 0.8 ? "portal" : "webhook",
-        createdAt: new Date(`${addDays(date, 1)}T18:00:00Z`),
-      });
-    }
-
-    // Rules only here: seeding shouldn't spend API credits. Use "Re-analyze with AI" in the app.
-    await assessClient(company.id, client.id, { useAI: false });
-    if (c.email === "hannah.lee@example.com") {
-      await db.insert(schema.users).values({
-        companyId: company.id,
-        name: c.name,
-        email: c.email,
-        role: "client",
-        clientId: client.id,
-        passwordHash,
-      });
-    }
-  }
+  await seedClients(company.id, cleaners, CLIENTS, { now, passwordHash, portalEmails: ["hannah.lee@example.com"] });
 
   // A few human-created tasks so the queue isn't only AI output.
-  const clientRows = await db.select().from(schema.clients);
+  const clientRows = await db.select().from(schema.clients).where(eq(schema.clients.companyId, company.id));
   const byName = (n: string) => clientRows.find((c) => c.name === n)!.id;
   await db.insert(schema.tasks).values([
     {
@@ -194,7 +214,33 @@ async function main() {
     },
   ]);
 
-  console.log(`Done. ${CLIENTS.length} clients, ${staff.length} staff. Log in with owner@sparkleco.demo / demo1234`);
+
+  // A second, smaller customer so the platform admin console has more than one company.
+  const [freshnest] = await db
+    .insert(schema.companies)
+    .values({ name: "FreshNest Home Cleaning", webhookSecret: "whsec_demo_freshnest_7c1e" })
+    .returning();
+  const freshnestStaff = await db
+    .insert(schema.users)
+    .values([
+      { companyId: freshnest.id, name: "Paolo Reyes", email: "owner@freshnest.demo", role: "owner", passwordHash },
+      { companyId: freshnest.id, name: "Lena Brooks", email: "lena@freshnest.demo", role: "cleaner", passwordHash },
+    ])
+    .returning();
+  await seedClients(freshnest.id, freshnestStaff.filter((u) => u.role === "cleaner"), FRESHNEST_CLIENTS, { now, passwordHash });
+
+  // Platform operator: belongs to no company.
+  await db.insert(schema.users).values({
+    companyId: null,
+    name: "ShineOps Admin",
+    email: "admin@shineops.demo",
+    role: "admin",
+    passwordHash,
+  });
+
+  console.log(
+    `Done. 2 companies, ${CLIENTS.length + FRESHNEST_CLIENTS.length} clients. Log in with owner@sparkleco.demo or admin@shineops.demo / demo1234`,
+  );
   process.exit(0);
 }
 
