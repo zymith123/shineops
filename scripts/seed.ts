@@ -167,7 +167,7 @@ async function main() {
   const staff = await db
     .insert(schema.users)
     .values([
-      { companyId: company.id, name: "Jerwin Owner", email: "owner@sparkleco.demo", role: "owner", passwordHash },
+      { companyId: company.id, name: "Sophie Bennett", email: "owner@sparkleco.demo", role: "owner", passwordHash },
       { companyId: company.id, name: "Rachel Ops", email: "manager@sparkleco.demo", role: "manager", passwordHash },
       { companyId: company.id, name: "Maria Santos", email: "maria@sparkleco.demo", role: "cleaner", passwordHash },
       { companyId: company.id, name: "James Carter", email: "james@sparkleco.demo", role: "cleaner", passwordHash },
