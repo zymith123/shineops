@@ -27,7 +27,7 @@ export function LoginForm() {
           <input ref={passwordRef} name="password" type="password" autoComplete="current-password" required className={inputClass} />
         </Field>
         {state.error && <p className="text-sm text-red-600">{state.error}</p>}
-        <Button type="submit" disabled={pending} className="w-full">
+        <Button type="submit" loading={pending} className="w-full">
           {pending ? "Signing in…" : "Sign in"}
         </Button>
       </form>

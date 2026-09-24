@@ -1,3 +1,4 @@
+import Form from "next/form";
 import { asc } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Role } from "@/db/schema";
@@ -5,6 +6,7 @@ import { requireAdmin } from "@/lib/auth";
 import { listAllUsers } from "@/lib/admin-queries";
 import { buttonClass, Card, CardHeader, Empty, inputClass, PageHeader } from "@/components/ui";
 import { AddUserForm, UserRow } from "./user-actions";
+import { FormPending } from "@/components/loading";
 
 const ROLES: Role[] = ["owner", "manager", "cleaner", "client", "admin"];
 
@@ -30,7 +32,7 @@ export default async function AdminUsersPage({
         subtitle={`${users.length} login${users.length === 1 ? "" : "s"}${users.length === 500 ? " (showing first 500)" : ""}`}
       />
 
-      <form className="mb-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_10rem_auto]">
+      <Form action="/admin/users" className="mb-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_10rem_auto]">
         <input name="q" defaultValue={q} placeholder="Search name or email…" className={inputClass} />
         <select name="company" defaultValue={company} className={inputClass} aria-label="Company">
           <option value="">All companies</option>
@@ -49,8 +51,11 @@ export default async function AdminUsersPage({
             </option>
           ))}
         </select>
-        <button className={buttonClass("secondary")}>Filter</button>
-      </form>
+        <button className={buttonClass("secondary")}>
+          <FormPending />
+          Filter
+        </button>
+      </Form>
 
       <div className="grid gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2">

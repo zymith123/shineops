@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { CalendarPlus } from "lucide-react";
 import { assignVisit, generateSchedule } from "@/lib/actions/visits";
 import { Button, inputClass } from "@/components/ui";
+import { InlineSpinner } from "@/components/loading";
 
 export function GenerateButton() {
   const [pending, start] = useTransition();
@@ -13,7 +14,7 @@ export function GenerateButton() {
     <div className="flex items-center gap-3">
       {msg && <span className="text-xs text-slate-500">{msg}</span>}
       <Button
-        disabled={pending}
+        loading={pending}
         onClick={() =>
           start(async () => {
             const { created } = await generateSchedule(4);
@@ -41,19 +42,22 @@ export function AssignSelect({
 }) {
   const [pending, start] = useTransition();
   return (
-    <select
-      aria-label="Assigned cleaner"
-      defaultValue={cleanerId ?? ""}
-      disabled={disabled || pending}
-      onChange={(e) => start(() => assignVisit(visitId, e.target.value))}
-      className={clsx(inputClass, "w-44 py-1.5", !cleanerId && "border-amber-300 bg-amber-50")}
-    >
-      <option value="">Unassigned</option>
-      {cleaners.map((c) => (
-        <option key={c.id} value={c.id}>
-          {c.name}
-        </option>
-      ))}
-    </select>
+    <span className="inline-flex items-center gap-1.5">
+      <select
+        aria-label="Assigned cleaner"
+        defaultValue={cleanerId ?? ""}
+        disabled={disabled || pending}
+        onChange={(e) => start(() => assignVisit(visitId, e.target.value))}
+        className={clsx(inputClass, "w-44 py-1.5", !cleanerId && "border-amber-300 bg-amber-50")}
+      >
+        <option value="">Unassigned</option>
+        {cleaners.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+      <InlineSpinner show={pending} />
+    </span>
   );
 }

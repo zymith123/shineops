@@ -9,6 +9,7 @@ import { createTask } from "@/lib/actions/tasks";
 import { Badge, Card, CardHeader, Empty, Field, inputClass, PageHeader } from "@/components/ui";
 import { ActionForm } from "@/components/client-form";
 import { TaskAssignee, TaskToggle } from "./task-actions";
+import { LinkPending } from "@/components/loading";
 
 const SOURCE = {
   ai: { label: "Health alert", tone: "amber" },
@@ -63,11 +64,12 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                 key={t.key}
                 href={`/tasks?view=${t.key}`}
                 className={clsx(
-                  "rounded-full px-3 py-1 text-xs font-medium",
+                  "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium",
                   view === t.key ? "bg-slate-900 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50",
                 )}
               >
                 {t.label}
+                <LinkPending collapse className="-mr-1" />
               </Link>
             ))}
           </div>
@@ -89,8 +91,9 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                         {task.description && <p className="mt-1 whitespace-pre-line text-sm text-slate-500">{task.description}</p>}
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                           {task.clientId && (
-                            <Link href={`/clients/${task.clientId}`} className="font-medium text-brand-700 hover:underline">
+                            <Link href={`/clients/${task.clientId}`} className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline">
                               {clientName}
+                              <LinkPending className="h-3 w-3" />
                             </Link>
                           )}
                           {task.dueDate && (

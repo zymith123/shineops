@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import type { HealthStatus } from "@/db/schema";
+import { Spinner } from "./loading";
 
 export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
   return <div className={clsx("rounded-xl border border-slate-200 bg-white shadow-sm", className)}>{children}</div>;
@@ -41,13 +42,31 @@ export function buttonClass(variant: keyof typeof buttonStyles = "primary", size
   );
 }
 
+/** `loading` swaps the button's icon for a spinner and blocks repeat clicks. */
 export function Button({
   variant = "primary",
   size = "md",
+  loading = false,
   className,
+  disabled,
+  children,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: keyof typeof buttonStyles; size?: "sm" | "md" }) {
-  return <button className={clsx(buttonClass(variant, size), className)} {...props} />;
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: keyof typeof buttonStyles;
+  size?: "sm" | "md";
+  loading?: boolean;
+}) {
+  return (
+    <button
+      className={clsx(buttonClass(variant, size), loading && "cursor-wait [&>svg:not(.spinner)]:hidden", className)}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      {...props}
+    >
+      {loading && <Spinner className={size === "sm" ? "h-3.5 w-3.5" : undefined} />}
+      {children}
+    </button>
+  );
 }
 
 export const inputClass =
