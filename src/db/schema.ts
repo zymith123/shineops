@@ -22,7 +22,7 @@ export const visitStatusEnum = pgEnum("visit_status", ["scheduled", "completed",
 export const feedbackSourceEnum = pgEnum("feedback_source", ["portal", "webhook", "manual"]);
 export const healthStatusEnum = pgEnum("health_status", ["healthy", "at_risk", "critical"]);
 export const taskStatusEnum = pgEnum("task_status", ["open", "done"]);
-export const taskSourceEnum = pgEnum("task_source", ["ai", "manual", "client_request"]);
+export const taskSourceEnum = pgEnum("task_source", ["ai", "manual", "client_request", "call"]);
 
 export const companies = pgTable("companies", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -173,3 +173,80 @@ export const tasks = pgTable(
 export type Role = (typeof roleEnum.enumValues)[number];
 export type Frequency = (typeof frequencyEnum.enumValues)[number];
 export type HealthStatus = (typeof healthStatusEnum.enumValues)[number];
+
+// ---------------------------------------------------------------------------
+// Sales: phone calls and the lead pipeline they feed.
+
+export const callTypeEnum = pgEnum("call_type", [
+  "new_lead",
+  "booking",
+  "reschedule",
+  "complaint",
+  "cancellation",
+  "billing",
+  "service_question",
+  "other",
+]);
+export const callDirectionEnum = pgEnum("call_direction", ["inbound", "outbound"]);
+export const callOutcomeEnum = pgEnum("call_outcome", ["booked", "follow_up_needed", "resolved", "lost", "no_action"]);
+export const leadStageEnum = pgEnum("lead_stage", ["new", "contacted", "quoted", "booked", "lost"]);
+
+export type RubricItem = { criterion: string; score: number; feedback: string };
+
+export const leads = pgTable(
+  "leads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    phone: text("phone").notNull(), // digits only, used to match repeat callers
+    address: text("address").notNull().default(""),
+    serviceRequested: text("service_requested").notNull().default(""),
+    stage: leadStageEnum("stage").notNull().default("new"),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    nextStep: text("next_step").notNull().default(""),
+    nextStepDue: date("next_step_due"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("leads_company_phone_idx").on(t.companyId, t.phone), index("leads_company_stage_idx").on(t.companyId, t.stage)],
+);
+
+export const calls = pgTable(
+  "calls",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    // Id from the phone system, so webhook retries don't create duplicates.
+    externalId: text("external_id"),
+    direction: callDirectionEnum("direction").notNull(),
+    callerName: text("caller_name").notNull().default(""), // as reported by the phone system (often blank)
+    callerPhone: text("caller_phone").notNull(), // digits only
+    repId: uuid("rep_id").references(() => users.id, { onDelete: "set null" }),
+    clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
+    leadId: uuid("lead_id").references(() => leads.id, { onDelete: "set null" }),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    durationSec: integer("duration_sec").notNull(),
+    transcript: text("transcript").notNull(),
+    // Analysis (null until analyzed)
+    type: callTypeEnum("type"),
+    typeConfidence: integer("type_confidence"),
+    summary: text("summary"),
+    outcome: callOutcomeEnum("outcome"),
+    score: integer("score"), // 0–100 coaching score; null when the call isn't a scorable conversation
+    rubric: jsonb("rubric").$type<RubricItem[]>(),
+    coachingTip: text("coaching_tip"),
+    missedOpportunity: text("missed_opportunity"),
+    analyzedBy: text("analyzed_by"), // "ai" | "rules"
+    analyzedAt: timestamp("analyzed_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("calls_company_started_idx").on(t.companyId, t.startedAt),
+    index("calls_client_idx").on(t.clientId),
+    uniqueIndex("calls_external_idx").on(t.companyId, t.externalId),
+  ],
+);
+
+export type CallType = (typeof callTypeEnum.enumValues)[number];
+export type CallOutcome = (typeof callOutcomeEnum.enumValues)[number];
+export type LeadStage = (typeof leadStageEnum.enumValues)[number];

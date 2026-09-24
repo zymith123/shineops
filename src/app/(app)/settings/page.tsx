@@ -1,9 +1,9 @@
 import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
-import { Bot, Webhook } from "lucide-react";
+import { Bot, PhoneCall, Webhook } from "lucide-react";
 import { db, schema } from "@/db";
 import { requireRole } from "@/lib/auth";
-import { aiEnabled } from "@/lib/health/ai";
+import { aiEnabled } from "@/lib/ai/client";
 import { Badge, Card, CardHeader, PageHeader } from "@/components/ui";
 
 export default async function SettingsPage() {
@@ -12,6 +12,20 @@ export default async function SettingsPage() {
   const h = await headers();
   const origin = `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
   const url = `${origin}/api/webhooks/feedback`;
+  const callsUrl = `${origin}/api/webhooks/calls`;
+  const callExample = {
+    id: 88213,
+    direction: "inbound",
+    customer_name: null,
+    customer_phone_number: "+1 512 555 0142",
+    agent_email: "manager@sparkleco.demo",
+    start_time: new Date().toISOString(),
+    duration: 142,
+    transcription: [
+      { speaker: "Agent", text: "Sparkle and Co, this is Rachel, how can I help?" },
+      { speaker: "Customer", text: "Hi, my name is Dana Lopez. How much is a biweekly clean for a 3 bedroom?" },
+    ],
+  };
 
   const examples = [
     {
@@ -73,6 +87,29 @@ export default async function SettingsPage() {
                 </pre>
               </div>
             ))}
+          </div>
+        </Card>
+        <Card>
+          <CardHeader title="Phone calls webhook" />
+          <div className="space-y-4 p-5 text-sm">
+            <div className="flex items-start gap-3">
+              <PhoneCall className="mt-0.5 h-5 w-5 text-brand-600" />
+              <p className="text-slate-600">
+                Send calls from your phone system (call tracking, VoIP or CRM) with their transcript. Each call is classified, scored for
+                coaching, matched to a client or lead by phone number, and moves the lead through the pipeline automatically. Same secret
+                header as above.
+              </p>
+            </div>
+            <dl className="grid gap-2 rounded-lg bg-slate-50 p-4 font-mono text-xs sm:grid-cols-[120px_1fr]">
+              <dt className="text-slate-500">URL</dt>
+              <dd className="break-all">{callsUrl}</dd>
+            </dl>
+            <div>
+              <p className="mb-1 text-xs font-medium text-slate-500">Call tracking format (utterances or a single transcript string)</p>
+              <pre className="overflow-x-auto rounded-lg bg-slate-900 p-4 text-xs leading-relaxed text-slate-100">
+                {`curl -X POST ${callsUrl} \\\n  -H "Content-Type: application/json" \\\n  -H "X-ShineOps-Secret: ${company.webhookSecret}" \\\n  -d '${JSON.stringify(callExample)}'`}
+              </pre>
+            </div>
           </div>
         </Card>
       </div>

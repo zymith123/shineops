@@ -15,6 +15,13 @@
       "when": 1790240929743,
       "tag": "0001_goofy_black_widow",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790260517193,
+      "tag": "0002_call_intelligence",
+      "breakpoints": true
     }
   ]
 }

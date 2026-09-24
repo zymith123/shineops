@@ -53,6 +53,20 @@ describe("health rules", () => {
     expect(a.reasons[0].signal).toBe("Inconsistent cleaner");
   });
 
+  it("treats a cancellation phone call as critical even without bad ratings", () => {
+    const s = computeSignals(
+      [{ rating: 5, comment: "", date: "2026-09-01" }],
+      visits(["a", "a", "a"]),
+      NOW,
+      [{ date: "2026-09-22", type: "cancellation", summary: "Wants to cancel weekly service" }],
+    );
+    expect(s.cancellationCalls60d).toBe(1);
+    expect(s.recentCalls[0]).toMatch(/cancellation/);
+    const a = scoreWithRules(s, "Olivia");
+    expect(a.reasons[0].signal).toBe("Called about cancelling");
+    expect(a.status).not.toBe("healthy");
+  });
+
   it("ignores feedback older than 90 days for the 30-day average", () => {
     const s = computeSignals([{ rating: 1, comment: "bad", date: "2026-05-01" }], [], NOW);
     expect(s.avgRating30d).toBeNull();

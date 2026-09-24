@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { LayoutDashboard, Users, CalendarDays, ListTodo, UserCog, Settings, Sun, Building2, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Users, CalendarDays, ListTodo, UserCog, Settings, Sun, Building2, ShieldCheck, PhoneCall } from "lucide-react";
 import type { Role } from "@/db/schema";
 import { LinkPending } from "./loading";
 
@@ -11,6 +11,7 @@ const ITEMS: { href: string; label: string; icon: React.ElementType; roles: Role
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["owner", "manager"] },
   { href: "/clients", label: "Clients", icon: Users, roles: ["owner", "manager"] },
   { href: "/schedule", label: "Schedule", icon: CalendarDays, roles: ["owner", "manager"] },
+  { href: "/sales", label: "Sales", icon: PhoneCall, roles: ["owner", "manager"] },
   { href: "/tasks", label: "Tasks", icon: ListTodo, roles: ["owner", "manager"] },
   { href: "/today", label: "My day", icon: Sun, roles: ["cleaner"] },
   { href: "/team", label: "Team", icon: UserCog, roles: ["owner"] },

@@ -15,6 +15,7 @@ const SOURCE = {
   ai: { label: "Health alert", tone: "amber" },
   client_request: { label: "Client request", tone: "blue" },
   manual: { label: "Manual", tone: "slate" },
+  call: { label: "From a call", tone: "green" },
 } as const;
 
 export default async function TasksPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
