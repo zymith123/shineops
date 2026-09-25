@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, eq, isNotNull, lte, notInArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, lte, notInArray } from "drizzle-orm";
 import { AlertTriangle, PhoneIncoming, Target, GraduationCap, CalendarClock } from "lucide-react";
 import { db, schema } from "@/db";
 import type { CallType } from "@/db/schema";
@@ -37,6 +37,15 @@ export default async function SalesOverview() {
       ),
     )
     .orderBy(schema.leads.nextStepDue);
+
+  // Each follow-up opens the lead's most recent call, where the context is.
+  const lastCalls = followUps.length
+    ? await db
+        .selectDistinctOn([schema.calls.leadId], { leadId: schema.calls.leadId, id: schema.calls.id })
+        .from(schema.calls)
+        .where(inArray(schema.calls.leadId, followUps.map((l) => l.id)))
+        .orderBy(schema.calls.leadId, desc(schema.calls.startedAt))
+    : [];
 
   const typeRows = (Object.keys(CALL_TYPES) as CallType[]).map((t) => {
     const n = analyzed.filter((c) => c.type === t).length;
@@ -93,18 +102,29 @@ export default async function SalesOverview() {
               <Empty>No overdue follow-ups.</Empty>
             ) : (
               <ul className="divide-y divide-slate-100">
-                {followUps.slice(0, 5).map((l) => (
-                  <li key={l.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
-                    <div className="min-w-0">
-                      <p className="font-medium">{l.name}</p>
-                      <p className="truncate text-xs text-slate-500">{l.nextStep || "Follow up"} · {formatPhone(l.phone)}</p>
-                    </div>
-                    <span className={l.nextStepDue! < now ? "shrink-0 text-xs font-medium text-red-600" : "shrink-0 text-xs text-slate-500"}>
-                      {l.nextStepDue! < now ? "Overdue · " : "Due "}
-                      {formatDate(l.nextStepDue!)}
-                    </span>
-                  </li>
-                ))}
+                {followUps.slice(0, 5).map((l) => {
+                  const callId = lastCalls.find((c) => c.leadId === l.id)?.id;
+                  return (
+                    <li key={l.id}>
+                      <Link
+                        href={callId ? `/sales/calls/${callId}` : "/sales/pipeline"}
+                        className="flex items-center justify-between gap-3 px-5 py-3 text-sm hover:bg-slate-50"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium">{l.name}</p>
+                          <p className="truncate text-xs text-slate-500">{l.nextStep || "Follow up"} · {formatPhone(l.phone)}</p>
+                        </div>
+                        <span className="flex shrink-0 items-center gap-1.5">
+                          <span className={l.nextStepDue! < now ? "text-xs font-medium text-red-600" : "text-xs text-slate-500"}>
+                            {l.nextStepDue! < now ? "Overdue · " : "Due "}
+                            {formatDate(l.nextStepDue!)}
+                          </span>
+                          <LinkPending />
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </Card>
