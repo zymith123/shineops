@@ -88,7 +88,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                   <HealthBadge status={health.status} score={health.score} />
                   <span className="inline-flex items-center gap-1 text-xs text-slate-400">
                     {health.generatedBy === "ai" ? <Bot className="h-3.5 w-3.5" /> : <Calculator className="h-3.5 w-3.5" />}
-                    {health.generatedBy === "ai" ? "Analyzed by Claude" : "Rules-based score"} ·{" "}
+                    {health.generatedBy === "ai" ? "Analyzed by AI" : "Rules-based score"} ·{" "}
                     {health.createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
                   </span>
                 </div>

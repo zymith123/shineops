@@ -105,4 +105,6 @@ Responses: `201` created (includes the updated health score), `200` duplicate, `
 
 Phone calls go to `/api/webhooks/calls` with the same secret header. It accepts call-tracking style payloads (`id`, `customer_phone_number`, `agent_email`, `start_time`, `duration`, `transcription` as text or `[{speaker, text}]`) or the native format (`caller_phone`, `rep_email`, `started_at`, `duration_sec`, `transcript`). Each call is analyzed on arrival and the response includes the classification.
 
+**Upload a call:** staff can upload a recording (MP3, M4A, WAV…, under 4 MB) from **Sales → Upload a call**. It's transcribed by AssemblyAI with speakers separated into Rep / Caller, then analyzed exactly like a webhook call. The page shows progress and opens the analyzed call when it's ready. If the speakers come out the wrong way round, **Swap speakers** on the call page fixes it and re-analyzes. Requires `ASSEMBLYAI_API_KEY`.
+
 The demo seed classifies its 22 calls with keyword rules (no API cost). With an API key set, click **Sales → Analyze calls with AI** once to get full analysis and coaching scores.

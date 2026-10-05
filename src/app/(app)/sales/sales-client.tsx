@@ -54,7 +54,7 @@ export function AnalyzeCallsButton({ ai }: { ai: boolean }) {
             setMsg("");
             try {
               const r = await analyzeAllCalls();
-              setMsg(r.count ? `Analyzed ${r.count} call${r.count === 1 ? "" : "s"}${r.ai ? " with Claude" : " with keyword rules"}` : "All calls already analyzed by AI");
+              setMsg(r.count ? `Analyzed ${r.count} call${r.count === 1 ? "" : "s"}${r.ai ? " with AI" : " with keyword rules"}` : "All calls already analyzed by AI");
             } catch {
               setMsg("Analysis failed. Check the server logs and your API key.");
             }

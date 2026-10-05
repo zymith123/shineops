@@ -7,6 +7,7 @@ import { db, schema } from "@/db";
 import { requireRole, STAFF } from "@/lib/auth";
 import { aiEnabled } from "@/lib/ai/client";
 import { analyzeCall, analyzeCalls } from "@/lib/calls/service";
+import { advanceUploadedCall, swapSpeakers } from "@/lib/calls/uploads";
 
 /** With an AI key: upgrades every call not yet analyzed by AI. Without: re-runs the keyword rules. */
 export async function analyzeAllCalls(): Promise<{ count: number; ai: boolean }> {
@@ -51,4 +52,23 @@ export async function assignLead(leadId: string, ownerId: string) {
     .set({ ownerId: ownerId || null, updatedAt: new Date() })
     .where(and(eq(schema.leads.id, leadId), eq(schema.leads.companyId, user.companyId)));
   revalidatePath("/sales", "layout");
+}
+
+/** Polled by the upload screen until the recording is transcribed and analyzed. */
+export async function checkUploadedCall(callId: string) {
+  const user = await requireRole(STAFF);
+  try {
+    const result = await advanceUploadedCall(user.companyId, callId);
+    if (result.status !== "processing") revalidatePath("/sales", "layout");
+    return result;
+  } catch (err) {
+    console.error("Checking uploaded call failed", err);
+    return { status: "processing" as const, error: null }; // transient: try again on the next poll
+  }
+}
+
+export async function swapCallSpeakers(callId: string) {
+  const user = await requireRole(STAFF);
+  await swapSpeakers(user.companyId, callId);
+  revalidatePath("/", "layout");
 }
