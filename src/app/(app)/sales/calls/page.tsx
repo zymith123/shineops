@@ -6,7 +6,7 @@ import { requireRole, STAFF } from "@/lib/auth";
 import { CALL_TYPES, formatCallTime, formatDuration, OUTCOMES } from "@/lib/calls/labels";
 import { formatPhone } from "@/lib/calls/phone";
 import { callsWithPeople } from "@/lib/sales-queries";
-import { Card, Empty } from "@/components/ui";
+import { Badge, Card, Empty } from "@/components/ui";
 import { CallTypeBadge, ScoreBadge } from "@/components/sales";
 import { LinkPending } from "@/components/loading";
 
@@ -73,16 +73,22 @@ export default async function CallsPage({ searchParams }: { searchParams: Promis
                     </td>
                     <td className="px-5 py-3">
                       <Link href={`/sales/calls/${c.id}`} className="inline-flex items-center gap-1.5 font-medium hover:text-brand-700 hover:underline">
-                        {c.callerName || formatPhone(c.callerPhone)}
+                        {c.callerName || (c.callerPhone ? formatPhone(c.callerPhone) : "Unknown caller")}
                         <LinkPending />
                       </Link>
                       <p className="text-xs text-slate-400">
-                        {c.clientId ? "Client" : c.leadId ? "Lead" : formatPhone(c.callerPhone)}
+                        {c.clientId ? "Client" : c.leadId ? "Lead" : c.callerPhone ? formatPhone(c.callerPhone) : "Uploaded recording"}
                       </p>
                     </td>
                     <td className="whitespace-nowrap px-5 py-3 text-slate-600">{c.repName ?? "—"}</td>
                     <td className="whitespace-nowrap px-5 py-3">
-                      <CallTypeBadge type={c.type} confidence={c.typeConfidence} />
+                      {c.transcriptionStatus === "processing" ? (
+                        <Badge tone="blue">Transcribing…</Badge>
+                      ) : c.transcriptionStatus === "error" ? (
+                        <Badge tone="red">Transcription failed</Badge>
+                      ) : (
+                        <CallTypeBadge type={c.type} confidence={c.typeConfidence} />
+                      )}
                     </td>
                     <td className="min-w-64 px-5 py-3 text-slate-600">
                       <p className="line-clamp-2">{c.summary ?? "—"}</p>

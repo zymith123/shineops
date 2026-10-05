@@ -1,9 +1,10 @@
 import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
-import { Bot, PhoneCall, Webhook } from "lucide-react";
+import { Bot, Mic, PhoneCall, Webhook } from "lucide-react";
 import { db, schema } from "@/db";
 import { requireRole } from "@/lib/auth";
 import { aiEnabled } from "@/lib/ai/client";
+import { transcriptionEnabled } from "@/lib/calls/transcribe";
 import { Badge, Card, CardHeader, PageHeader } from "@/components/ui";
 
 export default async function SettingsPage() {
@@ -52,12 +53,29 @@ export default async function SettingsPage() {
             <Bot className="mt-0.5 h-5 w-5 text-brand-600" />
             <div>
               <p className="flex items-center gap-2 font-medium">
-                Claude {aiEnabled() ? <Badge tone="green">Connected</Badge> : <Badge tone="amber">Not configured</Badge>}
+                AI analysis {aiEnabled() ? <Badge tone="green">Connected</Badge> : <Badge tone="amber">Not configured</Badge>}
               </p>
               <p className="mt-1 text-slate-500">
                 {aiEnabled()
-                  ? "Health checks read each client's feedback and visit history with Claude and write specific recommendations."
+                  ? "Calls and client health are analyzed by AI (Anthropic Claude), which writes specific recommendations and coaching."
                   : "Set ANTHROPIC_API_KEY to enable AI analysis. Until then, health scores use the built-in rules engine."}
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Call transcription" />
+          <div className="flex items-start gap-3 p-5 text-sm">
+            <Mic className="mt-0.5 h-5 w-5 text-brand-600" />
+            <div>
+              <p className="flex items-center gap-2 font-medium">
+                Recording uploads {transcriptionEnabled() ? <Badge tone="green">Connected</Badge> : <Badge tone="amber">Not configured</Badge>}
+              </p>
+              <p className="mt-1 text-slate-500">
+                {transcriptionEnabled()
+                  ? "Uploaded call recordings are transcribed by AssemblyAI (speakers separated), then analyzed. Audio is deleted from AssemblyAI once the transcript is saved."
+                  : "Set ASSEMBLYAI_API_KEY to let staff upload call recordings from Sales → Upload a call."}
               </p>
             </div>
           </div>

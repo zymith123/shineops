@@ -12,6 +12,7 @@ import { Badge, Card, CardHeader, Empty } from "@/components/ui";
 import { CallTypeBadge, ScoreBadge } from "@/components/sales";
 import { LinkPending } from "@/components/loading";
 import { ReanalyzeCallButton } from "../../sales-client";
+import { SwapSpeakersButton, TranscriptionPoller } from "./call-client";
 
 export default async function CallPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireRole(STAFF);
@@ -23,7 +24,7 @@ export default async function CallPage({ params }: { params: Promise<{ id: strin
   const [{ transcript }] = await db.select({ transcript: schema.calls.transcript }).from(schema.calls).where(eq(schema.calls.id, id));
   const [lead] = call.leadId ? await db.select().from(schema.leads).where(eq(schema.leads.id, call.leadId)) : [];
 
-  const lines = transcript.split("\n").map((l) => {
+  const lines = transcript.split("\n").filter((l) => l.trim()).map((l) => {
     const m = /^(Rep|Caller):\s*(.*)$/i.exec(l.trim());
     return m ? { who: m[1].toLowerCase() as "rep" | "caller", text: m[2] } : { who: "note" as const, text: l };
   });
@@ -34,17 +35,35 @@ export default async function CallPage({ params }: { params: Promise<{ id: strin
         <ArrowLeft className="h-3 w-3" /> All calls <LinkPending className="h-3 w-3" />
       </Link>
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <h2 className="text-xl font-semibold">{call.callerName || formatPhone(call.callerPhone)}</h2>
+        <h2 className="text-xl font-semibold">{call.callerName || (call.callerPhone ? formatPhone(call.callerPhone) : "Unknown caller")}</h2>
         <CallTypeBadge type={call.type} confidence={call.typeConfidence} />
         <span className="text-sm text-slate-500">
           {call.direction === "inbound" ? "Inbound" : "Outbound"} · {formatCallTime(call.startedAt)} · {formatDuration(call.durationSec)} ·{" "}
-          {call.repName ?? "No rep"} · {formatPhone(call.callerPhone)}
+          {call.repName ?? "No rep"}
+          {call.callerPhone && ` · ${formatPhone(call.callerPhone)}`}
+          {call.audioFileName && ` · Uploaded recording: ${call.audioFileName}`}
         </span>
       </div>
 
+      {call.transcriptionStatus === "processing" && (
+        <div className="mb-5 flex items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          <TranscriptionPoller callId={call.id} />
+          Transcribing the recording. This page updates automatically when it&apos;s ready (usually 15–60 seconds).
+        </div>
+      )}
+      {call.transcriptionStatus === "error" && (
+        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          Transcription failed: {call.transcriptionError ?? "unknown error"}. Try uploading the recording again.
+        </div>
+      )}
+
       <div className="grid gap-6 xl:grid-cols-5">
         <Card className="xl:col-span-3">
-          <CardHeader title="Transcript" />
+          <CardHeader
+            title="Transcript"
+            action={call.audioFileName && call.transcriptionStatus === "completed" ? <SwapSpeakersButton callId={call.id} /> : undefined}
+          />
+          {!transcript.trim() && <Empty>The transcript will appear here once the recording is transcribed.</Empty>}
           <ol className="space-y-2.5 p-5">
             {lines.map((l, i) => (
               <li key={i} className={clsx("flex", l.who === "rep" ? "justify-start" : l.who === "caller" ? "justify-end" : "justify-center")}>
@@ -77,7 +96,7 @@ export default async function CallPage({ params }: { params: Promise<{ id: strin
               <div className="space-y-3 p-5 text-sm">
                 <p className="inline-flex items-center gap-1 text-xs text-slate-400">
                   {call.analyzedBy === "ai" ? <Bot className="h-3.5 w-3.5" /> : <Calculator className="h-3.5 w-3.5" />}
-                  {call.analyzedBy === "ai" ? "Analyzed by Claude" : "Keyword rules (no coaching score)"}
+                  {call.analyzedBy === "ai" ? "Analyzed by AI" : "Keyword rules (no coaching score)"}
                 </p>
                 <p>{call.summary}</p>
                 <dl className="grid grid-cols-[110px_1fr] gap-y-1.5 text-sm">

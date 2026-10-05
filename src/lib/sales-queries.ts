@@ -27,6 +27,9 @@ export function callsWithPeople(companyId: string, since?: Date) {
       coachingTip: schema.calls.coachingTip,
       missedOpportunity: schema.calls.missedOpportunity,
       analyzedBy: schema.calls.analyzedBy,
+      audioFileName: schema.calls.audioFileName,
+      transcriptionStatus: schema.calls.transcriptionStatus,
+      transcriptionError: schema.calls.transcriptionError,
     })
     .from(schema.calls)
     .leftJoin(rep, eq(rep.id, schema.calls.repId))

@@ -21,6 +21,7 @@ export async function analyzeCall(companyId: string, callId: string, opts: { use
     .from(schema.calls)
     .where(and(eq(schema.calls.id, callId), eq(schema.calls.companyId, companyId)));
   if (!call) throw new Error("Call not found");
+  if (!call.transcript.trim()) return; // recording still being transcribed
 
   const client = await findClientByPhone(companyId, call.callerPhone);
 
@@ -61,7 +62,7 @@ export async function analyzeCall(companyId: string, callId: string, opts: { use
     return;
   }
 
-  if (isLeadCall(facts.type, facts.outcome)) {
+  if (isLeadCall(facts.type, facts.outcome) && call.callerPhone) {
     const leadId = await upsertLead(companyId, {
       phone: call.callerPhone,
       name: facts.callerName || call.callerName,
@@ -148,11 +149,18 @@ async function upsertLead(
  */
 export async function analyzeCalls(companyId: string, opts: { onlyMissingAI?: boolean; useAI?: boolean } = {}) {
   const rows = await db
-    .select({ id: schema.calls.id, phone: schema.calls.callerPhone, analyzedBy: schema.calls.analyzedBy })
+    .select({
+      id: schema.calls.id,
+      phone: schema.calls.callerPhone,
+      analyzedBy: schema.calls.analyzedBy,
+      transcriptionStatus: schema.calls.transcriptionStatus,
+    })
     .from(schema.calls)
     .where(eq(schema.calls.companyId, companyId))
     .orderBy(schema.calls.startedAt);
-  const todo = rows.filter((r) => !opts.onlyMissingAI || r.analyzedBy !== "ai");
+  const todo = rows.filter(
+    (r) => (!opts.onlyMissingAI || r.analyzedBy !== "ai") && (r.transcriptionStatus ?? "completed") === "completed",
+  );
 
   const queue = [...Map.groupBy(todo, (r) => r.phone).values()];
   await Promise.all(

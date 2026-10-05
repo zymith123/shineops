@@ -16,7 +16,7 @@ export function ReanalyzeAllButton() {
         onClick={() =>
           start(async () => {
             const r = await reanalyzeAll();
-            setResult(`Re-scored ${r.count} clients${r.ai ? " with Claude" : " (rules — add ANTHROPIC_API_KEY for AI)"}`);
+            setResult(`Re-scored ${r.count} clients${r.ai ? " with AI" : " with rules (AI not configured)"}`);
           })
         }
       >

@@ -239,6 +239,11 @@ export const calls = pgTable(
     missedOpportunity: text("missed_opportunity"),
     analyzedBy: text("analyzed_by"), // "ai" | "rules"
     analyzedAt: timestamp("analyzed_at", { withTimezone: true }),
+    // Uploaded recordings: transcribed by a speech-to-text service before analysis.
+    audioFileName: text("audio_file_name"),
+    transcriptionStatus: text("transcription_status"), // null (arrived as text) | "processing" | "completed" | "error"
+    transcriptionJobId: text("transcription_job_id"),
+    transcriptionError: text("transcription_error"),
   },
   (t) => [
     index("calls_company_started_idx").on(t.companyId, t.startedAt),
